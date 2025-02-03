@@ -1,56 +1,58 @@
 #include "LinarADC.h"
 #include <Arduino.h>
+#include "EmonLib.h"    
 
-LinarADC abc(34, 19, 18, ".json");
-// LinarADC abc;
+// LinarADC adc(34, ".bin", 14, 26);
+LinarADC adc;
+
+EnergyMonitor emon1, emon2;
 
 void setup(){
 
-    Serial.begin(250000);
+    Serial.begin(115200);
     delay(1000);
-    dac_output_enable(DAC_CHANNEL_1); 
-    dac_output_voltage(DAC_CHANNEL_1, 0); 
-    abc.debugfcn = [](const char *txt) {
+
+    adc.debugfcn = [](const char *txt) {
         Serial.printf(txt);
     };
 
-    // Do calbration.Save file
-    bool saved = abc.save();
-
-    if (saved) {
-        Serial.println("File saved");
-
-    } else {
-       Serial.println("Error. File wasn't saved"); 
-    }
-
     //  Load File. begin ADC
-    bool adcSuccess = abc.begin();
-    
-    if (adcSuccess) {
-        Serial.println("ADC OK");
-
-    } else {
+    if (!adc.begin()) {
         Serial.println("ADC error"); 
     }
+
+    Serial.println("ADC OK");
+
+    emon1.setADC(&adc);
+
+    emon1.voltage(32, 221, 1.7);  // Voltage: input pin, calibration, phase_shift
+
+    emon2.voltage(32, 221, 1.7); 
 
 };
 
 void loop(){
+    emon1.calcVI(40,2000);
+    emon2.calcVI(40,2000);
+    // Извлекаем RMS-напряжение:
+    double Vrms = emon1.Vrms;  // RMS-напряжение
+    double Vrms1 = emon2.Vrms;
+    float freq = emon1.frequency;;
+    
+    Serial.print("Voltage (Vrms): ");
+    Serial.print(Vrms);
+    Serial.println(" V");
 
-    for (int i = 1; i < 250; i++) {
+    Serial.print("Frequency: ");
+    Serial.print(freq);
+    Serial.println(" Hz");
 
-        dac_output_voltage(DAC_CHANNEL_1, i);
-        delayMicroseconds(100);
+    Serial.print("Voltage Uncalibrated (Vrms): ");
+    Serial.print(Vrms1);
+    Serial.println(" V");
 
-        Serial.print(F("DAC = "));
-        Serial.print(i * 16);
-        Serial.print(F(" rawReading = "));
-        Serial.print(analogRead(34));
-        Serial.print(F(" calibratedReading = "));
-        Serial.println(abc.read(34));
+    delay(1000); 
 
-    }
-    while(1);
 }
+
 

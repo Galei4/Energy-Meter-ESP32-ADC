@@ -1,5 +1,4 @@
-// #ifndef _LINAR_ADC_H_
-#define _LINAR_ADC_H_
+#pragma once
 
 #include <Arduino.h>
 #include <driver/dac.h>
@@ -68,9 +67,9 @@ private:
     void ledIndication(int pin, bool isLong) {
         if (pin == -1) return;
         int delayTime = isLong ? 2000 : 250;
-        digitalWrite(pin, HIGH);
-        delay(delayTime);
         digitalWrite(pin, LOW);
+        delay(delayTime);
+        digitalWrite(pin, HIGH);
         delay(250);
     }
 
@@ -148,9 +147,9 @@ private:
         }
         for (size_t i = 0; i < size; i++) {
             int intValue = static_cast<int>(array[i]);
-            file.print(intValue);
-            
+            file.print(intValue);      
             if (i < size - 1) file.print(",");
+            file.flush();
         }
         file.close();
         debugfcn(formatMessage("- Float array saved as .txt\r\n"));
@@ -166,6 +165,7 @@ private:
         for (size_t i = 0; i < size; i++) {
             int converted = static_cast<int>(array[i]);
             file.write(reinterpret_cast<uint8_t *>(&converted), sizeof(int));
+            file.flush();
         }
         file.close();
         debugfcn(formatMessage("- Float array saved as .bin\r\n"));
@@ -183,6 +183,7 @@ private:
         File file = fs.open(path, FILE_WRITE);
         if (!file) {
             debugfcn(formatMessage("- Failed to open file for writing\r\n"));
+            file.close();
             return false;
         }
         serializeJson(jsonCalibrationResults, file);
@@ -412,8 +413,8 @@ public:
      * @param file    Name of the file to be saved/read.
      * @param type    Type of the file to be saved/read (".json", ".txt", ".bin").
      */
-    LinarADC(int adcCalibration = 34, int led1 = -1, int led2 = -1, String type = ".bin", String file = "CalibrationResults")
-        :adcPinCalib(adcCalibration), led1Pin(led1), led2Pin(led2), fileType(type), fileName(file) {
+    LinarADC(int adcCalibration = 34, String type = ".bin", int led1 = -1, int led2 = -1, String file = "CalibrationResults")
+        :adcPinCalib(adcCalibration), fileType(type), led1Pin(led1), led2Pin(led2), fileName(file) {
                   
         results = new float[4097];
         if (results == nullptr) {
@@ -442,6 +443,8 @@ public:
 
         pinMode(led1Pin, OUTPUT);
         pinMode(led2Pin, OUTPUT);
+        digitalWrite(led1Pin, HIGH);
+        digitalWrite(led2Pin, HIGH);
  
     }
 
@@ -462,11 +465,11 @@ public:
 
     void (*debugfcn)(const char *txt);
 
-    bool save() {
+    bool save(dac_channel_t dacChannel = DAC_CHANNEL_1) {
 
         //setup
-        dac_output_enable(DAC_CHANNEL_1);
-        dac_output_voltage(DAC_CHANNEL_1, 0);
+        dac_output_enable(dacChannel);
+        dac_output_voltage(dacChannel, 0);
         analogReadResolution(12);
         delay(1000);
         if (!spiffsRun()) return false;
@@ -486,20 +489,20 @@ public:
 
     bool begin(){
 
+        analogReadResolution(12);
+        delay(100);
+
         if (!spiffsRun()) return false;
 
         if (!openFile()) {
             debugfcn(formatMessage("- Calibration file not found or invalid, using formula\r\n"));
-            return false;
+            return useCalibration = false;
         }
 
         if (calibrationArray[1000] == 0) { // If the array is zero, then NOT OK 
             debugfcn(formatMessage("- Calibration file not found or invalid, using formula\r\n"));
-            return false;
+            return useCalibration = false;
         }
-        
-        analogReadResolution(12);
-        delay(100);
         
         return useCalibration = true;
     }
