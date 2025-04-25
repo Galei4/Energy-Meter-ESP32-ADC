@@ -34,8 +34,8 @@ void setup(){
 void loop(){
     emon1.calcVI(40,2000);
     emon2.calcVI(40,2000);
-    // Извлекаем RMS-напряжение:
-    double Vrms = emon1.Vrms;  // RMS-напряжение
+
+    double Vrms = emon1.Vrms;  // RMS-voltage
     double Vrms1 = emon2.Vrms;
     float freq = emon1.frequency;;
     
